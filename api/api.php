@@ -1,11 +1,8 @@
 <?php
-// api.php  — simple procedural Lost & Found API
-// Example calls: yourdomain.com/api.php?action=register   etc.
-
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');           // ← change to your Flutter app domain in production
+header('Access-Control-Allow-Origin: *');           
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
@@ -13,16 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-// ────────────────────────────────────────────────
-// Include database connection
-// ────────────────────────────────────────────────
-
-include 'db.php';   // ← your file with $conn (mysqli)
-
-// ────────────────────────────────────────────────
-// Helper functions
-// ────────────────────────────────────────────────
+include 'db.php'; 
 
 function cl($v) {
     global $conn;
@@ -43,10 +31,6 @@ function is_logged_in() {
     return !empty($_SESSION['uid']);
 }
 
-// ────────────────────────────────────────────────
-// Read input
-// ────────────────────────────────────────────────
-
 $action = $_GET['action'] ?? '';
 
 $input = [];
@@ -57,11 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = $json;
     }
 }
-
-// ────────────────────────────────────────────────
-// ROUTING
-// ────────────────────────────────────────────────
-
 if ($action === 'register') {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') err('Use POST', 405);
@@ -101,7 +80,6 @@ if ($action === 'register') {
 
 }
 
-// ────────────────────────────────────────────────
 else if ($action === 'login') {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') err('Use POST', 405);
@@ -133,8 +111,6 @@ else if ($action === 'login') {
     ]);
 
 }
-
-// ────────────────────────────────────────────────
 else if ($action === 'logout') {
 
     $_SESSION = [];
@@ -142,8 +118,6 @@ else if ($action === 'logout') {
     out(['message' => 'Logged out successfully']);
 
 }
-
-// ────────────────────────────────────────────────
 else if ($action === 'whoami') {
 
     if (!is_logged_in()) {
@@ -158,8 +132,6 @@ else if ($action === 'whoami') {
     ]);
 
 }
-
-// ────────────────────────────────────────────────
 else if ($action === 'report-item') {
 
     if (!is_logged_in()) err('Please login first', 401);
@@ -198,13 +170,12 @@ else if ($action === 'report-item') {
         $target = $upload_dir . $filename;
 
         if (move_uploaded_file($_FILES['image']['tmp_name'], $target)) {
-            $image_path = $target;  // relative path - you can change to full URL later
+            $image_path = $target; 
         } else {
             err('Failed to upload image', 500);
         }
     }
 
-    // ─── Save to database ────────────────────────────────────────────
     $uid = $_SESSION['uid'];
 
     $sql = "INSERT INTO items 
@@ -224,8 +195,6 @@ else if ($action === 'report-item') {
     }
 
 }
-
-// ────────────────────────────────────────────────
 else if ($action === 'list-items') {
 
     $type_filter = '';
@@ -250,8 +219,6 @@ else if ($action === 'list-items') {
     out(['items' => $items]);
 
 }
-
-// ────────────────────────────────────────────────
 else {
     err('Unknown action', 404);
 }
