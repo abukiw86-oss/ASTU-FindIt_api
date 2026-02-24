@@ -1,0 +1,36 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    
+    # Auth endpoints
+    RewriteRule ^auth/(.*)$ auth.php?action=$1 [QSA,L]
+    
+    # Items endpoints
+    RewriteRule ^items/([0-9]+)$ items.php/$1 [QSA,L]
+    RewriteRule ^items$ items.php [QSA,L]
+    
+    # Claims endpoints
+    RewriteRule ^claims/incoming$ claims.php/incoming [QSA,L]
+    RewriteRule ^claims/my$ claims.php/my [QSA,L]
+    RewriteRule ^claims/([0-9]+)$ claims.php/$1 [QSA,L]
+    RewriteRule ^claims$ claims.php [QSA,L]
+    
+    # Notifications endpoints
+    RewriteRule ^notifications/unread-count$ notifications.php/unread-count [QSA,L]
+    RewriteRule ^notifications/read-all$ notifications.php/read-all [QSA,L]
+    RewriteRule ^notifications/([0-9]+)$ notifications.php/$1 [QSA,L]
+    RewriteRule ^notifications$ notifications.php [QSA,L]
+    
+    # Profile endpoint
+    RewriteRule ^profile$ profile.php [QSA,L]
+    
+    # Search endpoint
+    RewriteRule ^search$ search.php [QSA,L]
+</IfModule>
+
+# Limit upload size
+php_value upload_max_filesize 5M
+php_value post_max_size 5M
