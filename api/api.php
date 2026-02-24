@@ -2,6 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Log all errors to a file
 ini_set('log_errors', 1);
 ini_set('error_log', 'api_errors.log');
 
@@ -14,10 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-
 include 'db.php';
-
 function cl($v) {
     global $conn;
     return mysqli_real_escape_string($conn, trim(strip_tags($v ?? '')));
@@ -32,11 +30,9 @@ function out($data, $code = 200) {
 function err($msg, $code = 400) {
     out(['success' => false, 'message' => $msg], $code);
 }
-
 function debug_log($msg) {
     error_log("[LOST&FOUND] " . $msg);
 }
-
 $action = $_GET['action'] ?? '';
 
 $input = [];
@@ -118,18 +114,17 @@ else if ($action === 'login') {
     ]);
 
 }
+
 else if ($action === 'logout') {
 
     out(['success' => true, 'message' => 'Logged out successfully']);
 
 }
-
 else if ($action === 'whoami') {
 
     err('Not supported without authentication', 403);
 
 }
-
 else if ($action === 'report-item') {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') err('Use POST', 405);
@@ -154,7 +149,6 @@ else if ($action === 'report-item') {
             debug_log("ERROR: Invalid type: '$type'");
             err("Invalid type: '$type'. Must be 'lost' or 'found'");
         }
-
         if (!$title || strlen(trim($title)) === 0) {
             debug_log("ERROR: Title is empty");
             err('title is required');
@@ -174,8 +168,6 @@ else if ($action === 'report-item') {
             debug_log("ERROR: Reporter phone is empty");
             err('reporter_phone is required');
         }
-
-        // ─── Image upload handling ───────────────────────────────────────
         $image_path = null;
 
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
@@ -188,6 +180,8 @@ else if ($action === 'report-item') {
                     err('Failed to create upload directory', 500);
                 }
             }
+
+            // Check if directory is writable
             if (!is_writable($upload_dir)) {
                 debug_log("ERROR: Upload directory not writable");
                 err('Upload directory not writable', 500);
@@ -248,6 +242,7 @@ else if ($action === 'report-item') {
     }
 
 }
+
 else if ($action === 'list-items') {
 
     $type_filter = '';
