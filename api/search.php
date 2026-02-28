@@ -55,7 +55,7 @@ if ($action === 'simple-search') {
         $first_image = null;
         
         if (!empty($row['image_path']) && $row['image_path'] != 'NULL') {
-            // Remove quotes if present
+            
             $image_path = $row['image_path'];
             if (strpos($image_path, "'") === 0) {
                 $image_path = trim($image_path, "'");

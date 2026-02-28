@@ -8,11 +8,13 @@ if ($action === 'get-notifications') {
         echo json_encode(['success' => false, 'message' => 'User ID required']);
         exit;
     }
+     
     $check_user = mysqli_query($conn, "SELECT id FROM users WHERE user_string_id = '$user_id'");
     if (!$check_user || mysqli_num_rows($check_user) == 0) {
         echo json_encode(['success' => false, 'message' => 'User not found']);
         exit;
     }
+     
     $sql = "SELECT * FROM notifications 
             WHERE user_string_id = '$user_id' 
             ORDER BY created_at DESC";
@@ -27,10 +29,11 @@ if ($action === 'get-notifications') {
     $notifications = [];
     $unread_count = 0;
     
-    while ($row = mysqli_fetch_assoc($result)) {
+    while ($row = mysqli_fetch_assoc($result)) {  
         $item_details = null;
         $claim_details = null;
         $match_details = null;
+         
         if (in_array($row['type'], ['item_review', 'item_claimed']) && $row['reference_id']) {
             $item_query = mysqli_query($conn, "SELECT id, title, item_string_id, type, status, image_path 
                                               FROM items WHERE id = " . intval($row['reference_id']));
@@ -38,7 +41,7 @@ if ($action === 'get-notifications') {
                 $item_details = mysqli_fetch_assoc($item_query);
             }
         }
-        
+         
         if (in_array($row['type'], ['claim_approved', 'claim_rejected']) && $row['reference_id']) {
             $claim_query = mysqli_query($conn, "SELECT c.*, i.title as item_title 
                                                FROM item_claims c
@@ -47,7 +50,7 @@ if ($action === 'get-notifications') {
             if ($claim_query && mysqli_num_rows($claim_query) > 0) {
                 $claim_details = mysqli_fetch_assoc($claim_query);
             }
-        }
+        } 
         if ($row['type'] == 'match_found' && $row['reference_id']) {
             $match_query = mysqli_query($conn, "SELECT m.*, 
                                                l.title as lost_title, 
@@ -60,12 +63,12 @@ if ($action === 'get-notifications') {
                 $match_details = mysqli_fetch_assoc($match_query);
             }
         }
-        
+         
         $notification = [
             'id' => $row['id'],
             'user_string_id' => $row['user_string_id'],
             'type' => $row['type'],
-            'title' => $row['title'], 
+            'title' => $row['title'],   
             'message' => $row['message'],
             'is_read' => (bool)$row['is_read'],
             'created_at' => $row['created_at'],
@@ -91,4 +94,58 @@ if ($action === 'get-notifications') {
     ]);
     
     exit;
+}
+
+function createNotification($conn, $user_string_id, $type, $title, $message, $reference_id = null, $admin_notes = null) {
+    $user_string_id = mysqli_real_escape_string($conn, $user_string_id);
+    $type = mysqli_real_escape_string($conn, $type);
+    $title = mysqli_real_escape_string($conn, $title);
+    $message = mysqli_real_escape_string($conn, $message);
+    $admin_notes = $admin_notes ? mysqli_real_escape_string($conn, $admin_notes) : null;
+    $reference_id = $reference_id ? intval($reference_id) : 'NULL';
+    
+    $sql = "INSERT INTO notifications 
+            (user_string_id, type, title, message, reference_id, admin_notes, created_at, is_read) 
+            VALUES ('$user_string_id', '$type', '$title', '$message', $reference_id, " . 
+            ($admin_notes ? "'$admin_notes'" : "NULL") . ", NOW(), 0)";
+    
+    return mysqli_query($conn, $sql);
+}
+function _getNotificationTitle($row) {
+    $type = $row['type'];
+    
+    switch ($type) {
+        case 'claim_approved':
+            return 'Claim Approved ✅';
+        case 'claim_rejected':
+            return 'Claim Rejected ❌';
+        case 'match_found':
+            return 'Match Found! 🔗';
+        case 'item_claimed':
+            return 'Your Item Has Been Claimed 📦';
+        case 'item_review':
+            return 'Item Review Update 📋';
+        case 'admin_message':
+            return 'Message from Admin 👤';
+        default:
+            return 'Notification';
+    }
+}
+function _getItemDetails($row) {
+    $details = [];
+    
+    if ($row['item_title']) {
+        $details['title'] = $row['item_title'];
+    }
+    if ($row['item_type']) {
+        $details['type'] = $row['item_type'];
+    }
+    if ($row['item_status']) {
+        $details['status'] = $row['item_status'];
+    }
+    if ($row['item_image']) {
+        $details['image'] = $row['item_image'];
+    }
+    
+    return !empty($details) ? $details : null;
 }

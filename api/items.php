@@ -156,6 +156,7 @@ if ($action === 'report-lost-item') {
     }
     exit;
 }
+
 else if ($action === 'update-item') {
 
     while (ob_get_level()) ob_end_clean();
@@ -165,9 +166,7 @@ else if ($action === 'update-item') {
         http_response_code(405);
         echo json_encode(['success' => false, 'message' => 'Method Not Allowed – Use POST']);
         exit;
-    }
-
-    // Read fields
+    } 
     $item_id = trim($_POST['item_string_id'] ?? '');
     $user_string_id = trim($_POST['user_string_id'] ?? '');
 
@@ -178,8 +177,7 @@ else if ($action === 'update-item') {
 
     $kept_images_json   = $_POST['kept_images']   ?? '[]';
     $removed_images_json = $_POST['removed_images'] ?? '[]';
-
-    // Validation
+ 
     if (!$item_id || empty($item_id) || empty($user_string_id) || empty($title) || empty($description)) {
         http_response_code(400);
         echo json_encode([
@@ -227,8 +225,7 @@ else if ($action === 'update-item') {
 
     if (!is_array($kept_images))   $kept_images   = [];
     if (!is_array($removed_images)) $removed_images = [];
-
-    // Handle new uploads
+ 
     $upload_dir = 'uploads/items/';
     $new_image_paths = [];
 
@@ -255,21 +252,16 @@ else if ($action === 'update-item') {
                 $new_image_paths[] = $destination;
             }
         }
-    }
-
-    // Final image paths
+    }  
     $final_paths = array_merge($kept_images, $new_image_paths);
     $final_image_path_string = implode('|', array_filter($final_paths));
-
-    // Delete removed images from disk
+ 
     foreach ($removed_images as $old_path) {
         $old_path = trim($old_path);
         if ($old_path && file_exists($old_path) && is_file($old_path)) {
             @unlink($old_path);
         }
-    }
-
-    // Update
+    } 
     $stmt = $conn->prepare("
         UPDATE items SET 
             title       = ?,
@@ -427,9 +419,7 @@ else if ($action === 'get-found-items') {
     $items = [];
 
     while ($row = mysqli_fetch_assoc($result)) {
-        $is_founder = false;
-        
-        // Check if current user is the founder using string IDs
+        $is_founder = false; 
         if (!empty($user_string_id) && isset($row['user_string_id']) && $row['user_string_id'] == $user_string_id) {
             $is_founder = true;
         }
@@ -524,7 +514,7 @@ else if ($action === 'submit-item-claim') {
 
     $upload_dir = 'uploads/claims/';
     $allowed_types = ['image/jpeg', 'image/png', 'image/webp'];
-    $max_size = 5 * 1024 * 1024; // 5MB per file
+    $max_size = 5 * 1024 * 1024; 
     $image_paths = [];
 
     if (!empty($_FILES['images']['name'][0])) {
@@ -557,8 +547,7 @@ else if ($action === 'submit-item-claim') {
     }
     $conn->begin_transaction();
 
-    try {
-        // Insert main claim
+    try { 
         $stmt = $conn->prepare("
             INSERT INTO item_claims 
             (item_id, claimant_string_id, description, lost_location, status, created_at)
@@ -585,10 +574,7 @@ else if ($action === 'submit-item-claim') {
             $stmt->close();
         }
 
-        $conn->commit();
-
-        // Optional: create notification for item owner or admins
-        // createNotification($conn, $owner_string_id, 'item_claimed', ...);
+        $conn->commit(); 
 
         echo json_encode([
             'success' => true,
@@ -607,7 +593,7 @@ else if ($action === 'submit-item-claim') {
         echo json_encode([
             'success' => false,
             'message' => 'Server error while saving claim',
-            'debug'   => $e->getMessage() // remove in production
+             
         ]);
     }
 
@@ -623,8 +609,7 @@ else if ($action === 'report-found-match') {
         exit;
     }
 
-    try {
-        // ── Parse input ────────────────────────────────────────────────────────
+    try { 
         $input = [];
         $content_type = $_SERVER['CONTENT_TYPE'] ?? '';
 
@@ -646,9 +631,7 @@ else if ($action === 'report-found-match') {
                 echo json_encode(['success' => false, 'message' => 'Invalid input']);
                 exit;
             }
-        }
-
-        // Required fields
+        } 
         $lost_item_string_id = trim($input['lost_item_string_id'] ?? '');
         $finder_name         = trim($input['finder_name'] ?? '');
         $finder_phone        = trim($input['finder_phone'] ?? '');
@@ -658,8 +641,7 @@ else if ($action === 'report-found-match') {
         $location            = cl($input['location'] ?? '');
         $property            = cl($input['property'] ?? '');
         $found_date          = cl($input['date_and_time'] ?? '');
-
-        // Validation
+ 
         if (empty($lost_item_string_id)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Lost item string ID is required']);
@@ -684,12 +666,8 @@ else if ($action === 'report-found-match') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Please login to continue']);
             exit;
-        }
-
-        // Start transaction
-        mysqli_begin_transaction($conn);
-
-        // Verify lost item exists and get owner ID
+        } 
+        mysqli_begin_transaction($conn); 
         $stmt = mysqli_prepare($conn, "SELECT id, user_string_id as owner_id FROM items WHERE item_string_id = ? AND type = 'lost'");
         mysqli_stmt_bind_param($stmt, "s", $lost_item_string_id);
         mysqli_stmt_execute($stmt);
@@ -703,10 +681,8 @@ else if ($action === 'report-found-match') {
         }
         
         $lost_item = mysqli_fetch_assoc($result);
-        $lost_man_id = getidforlost($conn , $lost_item_string_id); // Get owner ID
-        mysqli_stmt_close($stmt);
-
-        // ── Handle multiple image uploads ─────────────────────────────────────
+        $lost_man_id = getidforlost($conn , $lost_item_string_id); 
+        mysqli_stmt_close($stmt); 
         $image_paths = [];
         $upload_dir = 'uploads/';
         
@@ -744,9 +720,7 @@ else if ($action === 'report-found-match') {
                     $image_paths[] = $target;
                 }
             }
-        }
-
-        // Require at least one image
+        } 
         if (empty($image_paths)) {
             mysqli_rollback($conn);
             http_response_code(400);
@@ -790,10 +764,10 @@ else if ($action === 'report-found-match') {
 
         $new_found_id = mysqli_insert_id($conn);
         mysqli_stmt_close($stmt);
-
+ 
 
         $match_confidence = 80;
-
+ 
         $match_sql = "INSERT INTO matches 
                       (lost_item_id, found_item_id, match_confidence, status, created_by, owner_of_item, created_at)
                       VALUES (?, ?, ?, 'pending', ?, ?, NOW())";
@@ -801,8 +775,7 @@ else if ($action === 'report-found-match') {
         $match_stmt = mysqli_prepare($conn, $match_sql);
         if (!$match_stmt) {
             throw new Exception('Failed to prepare match statement: ' . mysqli_error($conn));
-        }
-
+        } 
         mysqli_stmt_bind_param(
             $match_stmt,
             "ssiss",
@@ -818,8 +791,9 @@ else if ($action === 'report-found-match') {
         }
 
         mysqli_stmt_close($match_stmt);
+ 
         mysqli_commit($conn);
-
+ 
         echo json_encode([
             'success'         => true,
             'message'         => 'Thank you for reporting! Admin will verify and connect you with the owner.',
@@ -829,7 +803,7 @@ else if ($action === 'report-found-match') {
             'senderid'        => $user_string_id
         ]);
 
-    } catch (Exception $e) {
+    } catch (Exception $e) { 
         mysqli_rollback($conn);
         
         error_log("ERROR in report-found-match: " . $e->getMessage());
@@ -861,23 +835,21 @@ else if ($action === 'request-item-access') {
         exit;
     }
     
-    try {
+    try { 
         $user_string_id = mysqli_real_escape_string($conn, trim($input['user_string_id'] ?? ''));
         $item_string_id = mysqli_real_escape_string($conn, trim($input['item_string_id'] ?? ''));
         $message = mysqli_real_escape_string($conn, trim($input['message'] ?? ''));
-
+ 
         if (empty($user_string_id) || empty($item_string_id) || empty($message)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'User ID, Item ID, and message are required']);
             exit;
-        }
-
+        } 
         if (strlen($message) < 20) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Message must be at least 20 characters']);
             exit;
-        }
-
+        } 
         $user_query = "SELECT id FROM users WHERE user_string_id = ?";
         $stmt = mysqli_prepare($conn, $user_query);
         mysqli_stmt_bind_param($stmt, "s", $user_string_id);
@@ -892,7 +864,6 @@ else if ($action === 'request-item-access') {
         
         $user_data = mysqli_fetch_assoc($user_result);
         $user_id = $user_data['id']; 
-
         $item_query = "SELECT id, status, user_string_id as owner_string_id 
                       FROM items 
                       WHERE id = ? AND type = 'found'";
@@ -908,18 +879,18 @@ else if ($action === 'request-item-access') {
         }
         
         $item_data = mysqli_fetch_assoc($item_result);
-        $item_id = $item_data['id'];
-
+        $item_id = $item_data['id']; 
         if ($item_data['owner_string_id'] === $user_string_id) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'You cannot claim your own item']);
             exit;
-        }
+        } 
         if ($item_data['status'] == 'pending') {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'This item is not available for claiming']);
             exit;
         }
+ 
         $check_query = "SELECT id, status FROM item_claims 
                        WHERE item_id = ? AND user_id = ?";
         $stmt = mysqli_prepare($conn, $check_query);
@@ -936,6 +907,7 @@ else if ($action === 'request-item-access') {
             ]);
             exit;
         }
+ 
         mysqli_begin_transaction($conn);
         $insert_sql = "INSERT INTO item_claims (item_id, user_id, message, status, created_at)
                       VALUES (?, ?, ?, 'pending', NOW())";
@@ -955,9 +927,7 @@ else if ($action === 'request-item-access') {
         if (!mysqli_stmt_execute($stmt)) {
             throw new Exception('Failed to update item status');
         }
-
         mysqli_commit($conn);
-
         echo json_encode([
             'success' => true, 
             'message' => 'Access request submitted successfully',
