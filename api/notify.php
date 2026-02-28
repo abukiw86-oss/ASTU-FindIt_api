@@ -8,15 +8,11 @@ if ($action === 'get-notifications') {
         echo json_encode(['success' => false, 'message' => 'User ID required']);
         exit;
     }
-    
-    // Check if user exists
     $check_user = mysqli_query($conn, "SELECT id FROM users WHERE user_string_id = '$user_id'");
     if (!$check_user || mysqli_num_rows($check_user) == 0) {
         echo json_encode(['success' => false, 'message' => 'User not found']);
         exit;
     }
-    
-    // Simple query first - get all notifications for this user
     $sql = "SELECT * FROM notifications 
             WHERE user_string_id = '$user_id' 
             ORDER BY created_at DESC";
@@ -32,12 +28,9 @@ if ($action === 'get-notifications') {
     $unread_count = 0;
     
     while ($row = mysqli_fetch_assoc($result)) {
-        // Get additional details based on notification type and reference_id
         $item_details = null;
         $claim_details = null;
         $match_details = null;
-        
-        // For item-related notifications
         if (in_array($row['type'], ['item_review', 'item_claimed']) && $row['reference_id']) {
             $item_query = mysqli_query($conn, "SELECT id, title, item_string_id, type, status, image_path 
                                               FROM items WHERE id = " . intval($row['reference_id']));
@@ -46,7 +39,6 @@ if ($action === 'get-notifications') {
             }
         }
         
-        // For claim-related notifications
         if (in_array($row['type'], ['claim_approved', 'claim_rejected']) && $row['reference_id']) {
             $claim_query = mysqli_query($conn, "SELECT c.*, i.title as item_title 
                                                FROM item_claims c
@@ -56,8 +48,6 @@ if ($action === 'get-notifications') {
                 $claim_details = mysqli_fetch_assoc($claim_query);
             }
         }
-        
-        // For match-related notifications
         if ($row['type'] == 'match_found' && $row['reference_id']) {
             $match_query = mysqli_query($conn, "SELECT m.*, 
                                                l.title as lost_title, 
@@ -71,12 +61,11 @@ if ($action === 'get-notifications') {
             }
         }
         
-        // Build notification with all available details
         $notification = [
             'id' => $row['id'],
             'user_string_id' => $row['user_string_id'],
             'type' => $row['type'],
-            'title' => $row['title'], // Use the title directly from the table
+            'title' => $row['title'], 
             'message' => $row['message'],
             'is_read' => (bool)$row['is_read'],
             'created_at' => $row['created_at'],
