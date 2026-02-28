@@ -9,10 +9,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 include 'db.php';
-
 include 'helpers.php';
 
 $action = $_GET['action'] ?? '';
+
 $input = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw = file_get_contents('php://input');
@@ -22,16 +22,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-debug_log("Main router - Action: $action, Method: {$_SERVER['REQUEST_METHOD']}");
 
 if (strpos($action, 'admin-') === 0) {
     include 'admin.php';
-} 
-elseif (in_array($action, ['get-profile', 'update-profile', 'change-password', 'get-user-history', 'get-user-requests', 'get-notifications', 'mark-notification-read', 'mark-all-notifications-read'])) {
+    exit;
+}
+elseif (in_array($action, ['get-profile', 'update-profile', 'get-user-history', 'get-user-requests'])) {
     include 'profile.php';
 }
-elseif (in_array($action, ['register', 'login', 'logout', 'whoami'])) {
+elseif (in_array($action, ['register', 'login', 'logout'])) {
     include 'auth.php';
+}
+elseif (in_array($action, ['get-notifications','mark-notification-read','mark-all-notifications-read','get-notification-details','admin-send-message','get-admin-messages','reply-to-admin'])) {
+    include 'notify.php';
+    exit;
+}
+else if (in_array($action, ['simple-search', 'simple-item-details'])) {
+    include 'search.php';
+    exit;
 }
 else {
     include 'items.php';

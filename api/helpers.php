@@ -50,6 +50,15 @@ function getItemIdFromString($conn, $item_string_id) {
     }
     return 0;
 }
+function getidforlost($conn, $lost_item_string_id) {
+    $stmt = mysqli_prepare($conn, "SELECT user_string_id FROM items WHERE item_string_id = ?");
+    mysqli_stmt_bind_param($stmt, "s", $lost_item_string_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
+    return $row['user_string_id'] ?? null;
+}
 function generateUniqueStringId($conn) {
     $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789befowufboewfwoe3y904923y04fkdfjhbjfisdvfivf';
     $id = '';

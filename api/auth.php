@@ -3,32 +3,29 @@ if ($action === 'register') {
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') err('Use POST', 405);
 
-    $email     = cl($input['email'] ?? '');
+    $student_id     = cl($input['student_id'] ?? '');
     $password  = $input['password'] ?? '';
     $full_name = cl($input['full_name'] ?? '');
     $phone     = cl($input['phone'] ?? '');
 
-    if (!$email || !$password || !$full_name || !$phone) {
-        err('email, password, full_name and phone are required');
-    }
+    if (!$student_id || !$password || !$full_name || !$phone) {
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        err('Invalid email format');
     }
 
     if (strlen($password) < 6) {
         err('Password must be at least 6 characters');
     }
 
-    $r = mysqli_query($conn, "SELECT id FROM users WHERE email = '$email'");
+    $r = mysqli_query($conn, "SELECT id FROM users WHERE student_id = '$student_id'");
     if (mysqli_num_rows($r) > 0) {
         err('Email already registered', 409);
     }
+
     $user_string_id = generateUniqueStringId($conn);
     $hash = password_hash($password, PASSWORD_DEFAULT);
 
-    $sql = "INSERT INTO users (user_string_id, email, password_hash, full_name, phone, role, created_at)
-            VALUES ('$user_string_id', '$email', '$hash', '$full_name', '$phone', 'student', NOW())";
+    $sql = "INSERT INTO users (user_string_id, student_id, password_hash, full_name, phone, role, created_at)
+            VALUES ('$user_string_id', '$student_id', '$hash', '$full_name', '$phone', 'student', NOW())";
 
     if (mysqli_query($conn, $sql)) {
         $new_id = mysqli_insert_id($conn);
@@ -38,7 +35,7 @@ if ($action === 'register') {
             'user' => [
                 'id' => $new_id,
                 'user_string_id' => $user_string_id,
-                'email' => $email,
+                'student_id' => $student_id,
                 'full_name' => $full_name,
                 'phone' => $phone,
                 'role' => 'student'
@@ -51,39 +48,77 @@ if ($action === 'register') {
 }
 else if ($action === 'login') {
 
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') err('Use POST', 405);
+    header('Content-Type: application/json; charset=utf-8');
 
-    $email    = cl($input['email'] ?? '');
-    $password = $input['password'] ?? '';
-
-    if (!$email || !$password) err('email and password required');
-
-    $r = mysqli_query($conn, "SELECT * FROM users WHERE email = '$email'");
-    $user = mysqli_fetch_assoc($r);
-
-    if (!$user || !password_verify($password, $user['password_hash'])) {
-        err('Incorrect email or password', 401);
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405);
+        echo json_encode(['success' => false, 'message' => 'Method Not Allowed – Use POST']);
+        exit;
     }
 
-    out([
+    $raw = file_get_contents('php://input');
+    $input = json_decode($raw, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid JSON input']);
+        exit;
+    }
+
+    $student_id = trim($input['student_id'] ?? '');
+    $password   = $input['password'] ?? '';
+
+    if (empty($student_id) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Student ID and password are required']);
+        exit;
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM users WHERE student_id = ? LIMIT 1");
+    $stmt->bind_param("s", $student_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Incorrect student ID or password']);
+        $stmt->close();
+        exit;
+    }
+
+    $user = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!password_verify($password, $user['password_hash'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Incorrect student ID or password']);
+        exit;
+    }
+
+    $safe_user = [
+        'user_string_id' => $user['user_string_id'],
+        'student_id'     => $user['student_id'],
+        'full_name'      => $user['full_name'],
+        'email'          => $user['email'],
+        'phone'          => $user['phone'] ?? null,
+        'role'           => $user['role'],
+    ];
+
+    echo json_encode([
         'success' => true,
         'message' => 'Logged in successfully',
-        'user' => [
-            'id'              => $user['id'],
-            'user_string_id'  => $user['user_string_id'],
-            'email'           => $user['email'],
-            'full_name'       => $user['full_name'],
-            'phone'           => $user['phone'] ?? null,
-            'role'            => $user['role']
-        ]
+        'user'    => $safe_user
     ]);
 
+    exit;
 }
+
 else if ($action === 'logout') {
 
     out(['success' => true, 'message' => 'Logged out successfully']);
 
 }
+
 else if ($action === 'whoami') {
 
     err('Not supported without authentication', 403);
