@@ -43,3 +43,11 @@ Here are the core highlights:
 
 ## 📁 Project Structure
 
+GET /api/users
+POST /api/auth/login
+POST /api/auth/register
+GET /api/items
+POST /api/items
+PUT /api/items/:id
+DELETE /api/items/:id
+
