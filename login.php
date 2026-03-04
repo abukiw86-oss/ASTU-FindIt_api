@@ -384,34 +384,6 @@
                 <span class="btn-text"><i class="fas fa-sign-in-alt"></i> Login to Dashboard</span>
             </button>
         </form>
-
-        <!-- Test Credentials -->
-        <div class="info-box">
-            <i class="fas fa-info-circle"></i> Test Credentials
-            <div class="demo-credentials" id="demoCredentials">
-                <p><strong>Admin Account:</strong></p>
-                <p>Student ID: admin@example.com</p>
-                <p>Password: admin123</p>
-            </div>
-            <div class="test-credentials">
-                <button onclick="fillCredentials('admin@example.com', 'admin123')">Fill Admin</button>
-                <button onclick="fillCredentials('student@example.com', 'student123')">Fill Student</button>
-            </div>
-        </div>
-
-        <!-- Forgot Password Modal -->
-        <div id="forgotModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center;">
-            <div style="background: white; padding: 30px; border-radius: 20px; max-width: 400px; width: 90%;">
-                <h3 style="margin-bottom: 15px;"><i class="fas fa-question-circle"></i> Forgot Password</h3>
-                <p style="margin-bottom: 20px; color: #666;">Please contact the system administrator to reset your password.</p>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                    <p><i class="fas fa-envelope"></i> admin@lostfound.com</p>
-                    <p><i class="fas fa-phone"></i> +251 911 234 567</p>
-                </div>
-                <button onclick="closeForgotModal()" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">Close</button>
-            </div>
-        </div>
-
         <div class="footer">
             &copy; 2026 Lost & Found Mediator. All rights reserved.
             <br>
@@ -422,13 +394,10 @@
     <script>
         const API_URL = 'https://astufindit.x10.mx/index/api.php';
 
-        // Check if already logged in
         const savedAdmin = localStorage.getItem('adminData') || sessionStorage.getItem('adminData');
         if (savedAdmin) {
             window.location.href = 'admin.php';
         }
-
-        // Toggle password visibility
         function togglePassword() {
             const passwordInput = document.getElementById('password');
             const toggleIcon = document.getElementById('togglePassword');
@@ -443,8 +412,6 @@
                 toggleIcon.classList.add('fa-eye');
             }
         }
-
-        // Show error message
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
             const errorText = document.getElementById('errorText');
@@ -477,11 +444,6 @@
             }
         }
 
-        // Fill test credentials
-        function fillCredentials(studentId, password) {
-            document.getElementById('student_id').value = studentId;
-            document.getElementById('password').value = password;
-        }
 
         // Handle login form submission
         async function handleLogin(event) {
