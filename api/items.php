@@ -61,12 +61,10 @@ if ($action === 'report-lost-item') {
         $sizes     = is_array($files['size'])     ? $files['size']     : [$files['size'] ?? 0];
 
         $file_count = count($names);
-        error_log("Detected $file_count file(s) in 'image' field");
 
         for ($i = 0; $i < $file_count; $i++) {
             $error_code = $errors[$i] ?? UPLOAD_ERR_NO_FILE;
             if ($error_code !== UPLOAD_ERR_OK) {
-                error_log("File #$i skipped - error code: $error_code");
                 continue;
             }
 
@@ -74,14 +72,12 @@ if ($action === 'report-lost-item') {
             $ext = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
 
             if (!in_array($ext, $allowed_ext)) {
-                error_log("File #$i skipped - invalid extension: $ext");
-                continue;
+               continue;
             }
 
             $file_size = $sizes[$i] ?? 0;
             if ($file_size > $max_size_per_file) {
-                error_log("File #$i skipped - too large: $file_size bytes");
-                continue;
+               continue;
             }
             $filename = 'lost_' . time() . '_' . uniqid() . '.' . $ext;
             $target_path = $upload_dir . $filename;
@@ -89,9 +85,6 @@ if ($action === 'report-lost-item') {
 
             if ($tmp_name && move_uploaded_file($tmp_name, $target_path)) {
                 $image_paths[] = $target_path;
-                error_log("Uploaded: $target_path");
-            } else {
-                error_log("Failed to upload file #$i: $original_name");
             }
         }
     }
@@ -110,7 +103,6 @@ if ($action === 'report-lost-item') {
 
     $stmt = mysqli_prepare($conn, $sql);
     if (!$stmt) {
-        error_log("Prepare statement failed: " . mysqli_error($conn));
         err('Database prepare error', 500);
     }
 
@@ -141,12 +133,9 @@ if ($action === 'report-lost-item') {
         ], 201);
     } else {
         $error = mysqli_stmt_error($stmt);
-        error_log("Insert failed: $error");
         err("Database insert failed: $error", 500);
     }
     } catch (Exception $e) {
-        error_log("CRITICAL ERROR in report-lost-item: " . $e->getMessage());
-        error_log("Stack trace: " . $e->getTraceAsString());
 
         http_response_code(500);
         echo json_encode([
@@ -805,8 +794,6 @@ else if ($action === 'report-found-match') {
 
     } catch (Exception $e) { 
         mysqli_rollback($conn);
-        
-        error_log("ERROR in report-found-match: " . $e->getMessage());
         http_response_code(500);
         echo json_encode([
             'success' => false,
@@ -937,9 +924,6 @@ else if ($action === 'request-item-access') {
 
     } catch (Exception $e) {
         mysqli_rollback($conn);
-        
-        error_log("ERROR in request-item-access: " . $e->getMessage());
-        error_log("Stack trace: " . $e->getTraceAsString());
 
         http_response_code(500);
         echo json_encode([

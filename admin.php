@@ -650,10 +650,8 @@
         </div>
 
         <div class="content">
-            <!-- ========== DASHBOARD VIEW ========== -->
             <div id="dashboardView">
                 <div class="stats-grid" id="dashboardStats">
-                    <!-- Stats will be loaded here -->
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
@@ -692,7 +690,6 @@
                 </div>
             </div>
 
-            <!-- ========== ITEMS VIEW ========== -->
             <div id="itemsView" style="display: none;">
                 <div class="filters">
                     <select id="itemTypeFilter">
@@ -713,7 +710,7 @@
                     </select>
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="itemSearch" placeholder="Search by title, description, reporter...">
+                        <input type="text" id="itemSearch" placeholder="Search by title, description...">
                     </div>
                     <button onclick="loadItems(1)"><i class="fas fa-search"></i> Search</button>
                     <button class="secondary" onclick="resetItemFilters()"><i class="fas fa-undo"></i> Reset</button>
@@ -722,7 +719,6 @@
                 <div id="itemsPagination" class="pagination"></div>
             </div>
 
-            <!-- ========== CLAIMS VIEW ========== -->
             <div id="claimsView" style="display: none;">
                 <div class="filters">
                     <select id="claimStatusFilter">
@@ -741,8 +737,7 @@
                 <div id="claimsList"></div>
                 <div id="claimsPagination" class="pagination"></div>
             </div>
-
-            <!-- ========== MATCHES VIEW ========== -->
+<!-- matches -->
             <div id="matchesView" style="display: none;">
                 <div class="filters">
                     <select id="matchStatusFilter">
@@ -762,7 +757,6 @@
                 <div id="matchesPagination" class="pagination"></div>
             </div>
 
-            <!-- ========== USERS VIEW ========== -->
             <div id="usersView" style="display: none;">
                 <div class="filters">
                     <select id="userRoleFilter">
@@ -951,26 +945,9 @@
                         <button class="warning" onclick="changePassword()"><i class="fas fa-key"></i> Change Password</button>
                     </div>
                 </div>
-
-                <div class="table-container" style="margin-top: 20px;">
-                    <h3><i class="fas fa-palette"></i> Appearance</h3>
-                    <div style="display: flex; gap: 20px; margin: 20px 0;">
-                        <label>
-                            <input type="radio" name="theme" value="light" checked> Light Mode
-                        </label>
-                        <label>
-                            <input type="radio" name="theme" value="dark"> Dark Mode
-                        </label>
-                        <label>
-                            <input type="radio" name="theme" value="auto"> Auto (System)
-                        </label>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
-
-    <!-- ========== MODALS ========== -->
 
     <!-- Review Item Modal -->
     <div class="modal" id="reviewItemModal">
@@ -1804,7 +1781,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        item_id: currentItem.id,
+                        item_id: currentItem.item_string_id,
                         review_action: action,
                         admin_notes: notes,
                         notify_user: notify
@@ -2815,7 +2792,6 @@
         function switchTab(tab) {
             document.querySelectorAll('.nav-tabs button').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
-            
             document.getElementById('dashboardView').style.display = tab === 'dashboard' ? 'block' : 'none';
             document.getElementById('itemsView').style.display = tab === 'items' ? 'block' : 'none';
             document.getElementById('claimsView').style.display = tab === 'claims' ? 'block' : 'none';

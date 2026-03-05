@@ -13,10 +13,6 @@ function out($data, $code = 200) {
 function err($msg, $code = 400) {
     out(['success' => false, 'message' => $msg], $code);
 }
-
-function debug_log($msg) {
-    error_log("[LOST&FOUND] " . $msg);
-}
 function generateUniqueItemStringId($conn) {
     $characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789bfkerfbeo94ry3048y2304y340823ywoajfihfaobf';
     $id = '';

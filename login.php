@@ -319,20 +319,14 @@
             <h2>Admin Login</h2>
             <p>Lost & Found Management System</p>
         </div>
-
-        <!-- Error Message -->
         <div class="error-message" id="errorMessage">
             <i class="fas fa-exclamation-circle"></i>
             <span id="errorText"></span>
         </div>
-
-        <!-- Success Message -->
         <div class="success-message" id="successMessage">
             <i class="fas fa-check-circle"></i>
             <span id="successText"></span>
         </div>
-
-        <!-- Login Form -->
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label for="student_id">
@@ -384,11 +378,6 @@
                 <span class="btn-text"><i class="fas fa-sign-in-alt"></i> Login to Dashboard</span>
             </button>
         </form>
-        <div class="footer">
-            &copy; 2026 Lost & Found Mediator. All rights reserved.
-            <br>
-            <a href="../index.php">← Back to Home</a>
-        </div>
     </div>
 
     <script>
@@ -398,6 +387,7 @@
         if (savedAdmin) {
             window.location.href = 'admin.php';
         }
+
         function togglePassword() {
             const passwordInput = document.getElementById('password');
             const toggleIcon = document.getElementById('togglePassword');
@@ -421,7 +411,6 @@
             document.getElementById('successMessage').style.display = 'none';
         }
 
-        // Show success message
         function showSuccess(message) {
             const successDiv = document.getElementById('successMessage');
             const successText = document.getElementById('successText');
@@ -430,8 +419,6 @@
             
             document.getElementById('errorMessage').style.display = 'none';
         }
-
-        // Set loading state
         function setLoading(isLoading) {
             const loginBtn = document.getElementById('loginBtn');
             
@@ -443,9 +430,6 @@
                 loginBtn.disabled = false;
             }
         }
-
-
-        // Handle login form submission
         async function handleLogin(event) {
             event.preventDefault();
             
@@ -479,7 +463,6 @@
                 console.log('Login response:', data);
                 
                 if (data.success && data.user) {
-                    // Store complete user data
                     const userData = {
                         id: data.user.id,
                         user_string_id: data.user.user_string_id,
@@ -489,8 +472,6 @@
                         email: data.user.email || data.user.student_id,
                         role: data.user.role
                     };
-                    
-                    console.log('Storing user data:', userData);
                     
                     if (remember) {
                         localStorage.setItem('adminData', JSON.stringify(userData));
@@ -508,13 +489,11 @@
                     setLoading(false);
                 }
             } catch (error) {
-                console.error('Login error:', error);
                 showError('Network error. Please check your connection.');
                 setLoading(false);
             }
         }
 
-        // Forgot password modal
         function showForgotPassword() {
             document.getElementById('forgotModal').style.display = 'flex';
         }
@@ -523,14 +502,11 @@
             document.getElementById('forgotModal').style.display = 'none';
         }
 
-        // Handle Enter key
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('loginBtn').click();
             }
         });
-
-        // Clear error on input
         document.getElementById('student_id').addEventListener('input', function() {
             document.getElementById('errorMessage').style.display = 'none';
         });
@@ -538,9 +514,6 @@
         document.getElementById('password').addEventListener('input', function() {
             document.getElementById('errorMessage').style.display = 'none';
         });
-
-        // Initialize
-        console.log('Login page loaded');
     </script>
 </body>
 </html>

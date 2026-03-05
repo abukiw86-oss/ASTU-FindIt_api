@@ -63,8 +63,6 @@ if ($action === 'update-profile') {
     }
     $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = $user_id";
     
-    error_log("Update SQL: " . $sql);
-
     if (mysqli_query($conn, $sql)) {
         $result = mysqli_query($conn, "SELECT id, user_string_id, email, full_name, phone, role FROM users WHERE id = $user_id");
         $updated_user = mysqli_fetch_assoc($result);
@@ -82,7 +80,6 @@ if ($action === 'update-profile') {
             ]
         ]);
     } else {
-        error_log("Database error: " . mysqli_error($conn));
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Database error: ' . mysqli_error($conn)]);
     }

@@ -36,12 +36,9 @@ if ($action === 'simple-search') {
     
     $sql .= " ORDER BY i.created_at DESC LIMIT 50";
     
-    error_log("Simple Search SQL: $sql");
-    
     $result = mysqli_query($conn, $sql);
     
     if (!$result) {
-        error_log("Search error: " . mysqli_error($conn));
         echo json_encode([
             'success' => false, 
             'message' => 'Database error occurred'

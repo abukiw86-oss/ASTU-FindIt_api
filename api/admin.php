@@ -128,7 +128,7 @@ if ($action === 'admin-dashboard-stats') {
     exit;
 }
 
-if ($action === 'admin-get-items') {
+else if ($action === 'admin-get-items') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -190,7 +190,7 @@ if ($action === 'admin-get-items') {
     exit;
 }
 
-if ($action === 'admin-get-pending-items') {
+else if ($action === 'admin-get-pending-items') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -226,65 +226,179 @@ if ($action === 'admin-get-pending-items') {
     exit;
 }
 
-if ($action === 'admin-review-item') {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-        exit;
-    }
+else if ($action === 'admin-review-item') {
+    // Enable error logging but don't display
+    error_reporting(E_ALL);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
     
-    header('Content-Type: application/json; charset=utf-8');
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    $admin_identifier = $input['admin_id'] ?? $input['admin_email'] ?? $input['admin_string_id'] ?? '';
-    $item_id = intval($input['item_id'] ?? 0);
-    $review_action = $input['review_action'] ?? '';
-    $admin_notes = mysqli_real_escape_string($conn, $input['admin_notes'] ?? '');
-    
-
-    
-    if (!$item_id || !in_array($review_action, ['approve', 'reject'])) {
-        echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
-        exit;
-    }
-    
-    $new_status = $review_action === 'approve' ? 'open' : 'rejected';
-    
-    mysqli_begin_transaction($conn);
-    
-    $get_item = mysqli_query($conn, "SELECT user_string_id, title, type FROM items WHERE id = $item_id");
-    $item = mysqli_fetch_assoc($get_item);
-    
-    $update = "UPDATE items SET status = '$new_status', admin_notes = '$admin_notes' WHERE id = $item_id";
-    
-    if (mysqli_query($conn, $update)) {
-        $notif_title = $review_action === 'approve' ? 'Item Approved' : 'Item Rejected';
-        $notif_message = "Your {$item['type']} item '{$item['title']}' has been $new_status.";
-        if (!empty($admin_notes)) {
-            $notif_message .= " Notes: $admin_notes";
+    try {
+        error_log("=== ADMIN REVIEW ITEM STARTED ===");
+        
+        if (ob_get_level()) ob_clean();
+        
+        header('Content-Type: application/json; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            error_log("Method not allowed: " . $_SERVER['REQUEST_METHOD']);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            exit;
+        }
+        $raw_input = file_get_contents('php://input');
+        error_log("Raw input: " . $raw_input);
+        
+        $input = json_decode($raw_input, true);
+        error_log("Decoded input: " . print_r($input, true));
+        
+        if (!$input) {
+            error_log("Invalid JSON input");
+            echo json_encode(['success' => false, 'message' => 'Invalid JSON input']);
+            exit;
         }
         
-        mysqli_query($conn, "INSERT INTO notifications 
-            (user_string_id, type, title, message, reference_id, admin_notes, created_at, is_read) 
-            VALUES ('{$item['user_string_id']}', 'item_review', '$notif_title', '$notif_message', 
-                    $item_id, '$admin_notes', NOW(), 0)");
+        // Extract parameters
+        $item_id = isset($input['item_id']) ? trim($input['item_id']) : '';
+        $review_action = isset($input['review_action']) ? trim($input['review_action']) : '';
+        $admin_notes = isset($input['admin_notes']) ? trim($input['admin_notes']) : '';
+        $notify_user = isset($input['notify_user']) ? filter_var($input['notify_user'], FILTER_VALIDATE_BOOLEAN) : true;
         
-        logAdminAction($conn, $verify['admin']['full_name'], "review_item", 
-                      "Item #$item_id $new_status", $item['user_string_id']);
+        error_log("item_id: $item_id");
+        error_log("review_action: $review_action");
+        error_log("admin_notes: $admin_notes");
+        error_log("notify_user: " . ($notify_user ? 'true' : 'false'));
         
-        mysqli_commit($conn);
+        if (empty($item_id)) {
+            error_log("Missing item_id");
+            echo json_encode(['success' => false, 'message' => 'Item ID is required']);
+            exit;
+        }
         
-        echo json_encode(['success' => true, 'message' => 'Item ' . $review_action . 'd']);
-    } else {
-        mysqli_rollback($conn);
-        echo json_encode(['success' => false, 'message' => 'Update failed']);
+        if (!in_array($review_action, ['approve', 'reject'])) {
+            error_log("Invalid review_action: $review_action");
+            echo json_encode(['success' => false, 'message' => 'Review action must be "approve" or "reject"']);
+            exit;
+        }
+        
+        if (!$conn) {
+            error_log("Database connection failed");
+            echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+            exit;
+        }
+        
+        
+        $new_status = $review_action === 'approve' ? 'open' : 'rejected';
+        
+        $escaped_item_id = mysqli_real_escape_string($conn, $item_id);
+        error_log("Escaped item_id: $escaped_item_id");
+        
+        mysqli_begin_transaction($conn);
+        
+        try {
+            $check_sql = "SELECT * FROM items WHERE item_string_id = '$escaped_item_id'";
+            error_log("Check SQL: " . $check_sql);
+            
+            $check_result = mysqli_query($conn, $check_sql);
+            if (!$check_result) {
+                throw new Exception("Check query failed: " . mysqli_error($conn));
+            }
+            
+            if (mysqli_num_rows($check_result) == 0) {
+                throw new Exception("Item not found with ID: $escaped_item_id");
+            }
+            
+            $item = mysqli_fetch_assoc($check_result);
+            error_log("Found item: " . print_r($item, true));
+            
+            // Update the item
+            $update_sql = "UPDATE items SET status = '$new_status', admin_notes = ? WHERE item_string_id = '$escaped_item_id'";
+            error_log("Update SQL: " . $update_sql);
+            
+            $update_stmt = mysqli_prepare($conn, $update_sql);
+            mysqli_stmt_bind_param($update_stmt, "s", $admin_notes);
+            
+            if (!mysqli_stmt_execute($update_stmt)) {
+                throw new Exception("Update failed: " . mysqli_stmt_error($update_stmt));
+            }
+            
+            mysqli_stmt_close($update_stmt);
+            error_log("Update successful");
+            if ($notify_user && !empty($item['user_string_id'])) {
+                $notif_type = 'item_review';
+                $notif_title = $review_action === 'approve' ? '✅ Item Approved' : '❌ Item Rejected';
+                $notif_message = "Your {$item['type']} item '{$item['title']}' has been " . strtoupper($new_status) . ".";
+                
+                if (!empty($admin_notes)) {
+                    $notif_message .= " Admin notes: $admin_notes";
+                }
+                
+                error_log("Creating notification for user: " . $item['user_string_id']);
+                
+                // Use prepared statement for notification to avoid SQL injection
+                $notif_sql = "INSERT INTO notifications 
+                    (user_string_id, type, title, message, reference_id, admin_notes, created_at, is_read) 
+                    VALUES (?, ?, ?, ?, ?, ?, NOW(), 0)";
+                
+                $notif_stmt = mysqli_prepare($conn, $notif_sql);
+                mysqli_stmt_bind_param(
+                    $notif_stmt, 
+                    "ssssss", 
+                    $item['user_string_id'],
+                    $notif_type,
+                    $notif_title,
+                    $notif_message,
+                    $escaped_item_id,
+                    $admin_notes
+                );
+                
+                if (!mysqli_stmt_execute($notif_stmt)) {
+                    error_log("Notification insert failed: " . mysqli_stmt_error($notif_stmt));
+                } else {
+                    error_log("Notification created successfully");
+                }
+                
+                mysqli_stmt_close($notif_stmt);
+            }
+            
+            // Commit transaction
+            mysqli_commit($conn);
+            error_log("Transaction committed successfully");
+            
+            $response = [
+                'success' => true, 
+                'message' => 'Item ' . $review_action . 'd successfully',
+                'new_status' => $new_status
+            ];
+            
+            error_log("Sending response: " . json_encode($response));
+            echo json_encode($response);
+            
+        } catch (Exception $e) {
+            mysqli_rollback($conn);
+            error_log("Exception: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        
+        error_log("=== ADMIN REVIEW ITEM ENDED ===");
+        exit;
+        
+    } catch (Exception $e) {
+        error_log("Fatal exception: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        
+        if (isset($conn) && $conn) {
+            mysqli_rollback($conn);
+        }
+        
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        exit;
     }
-    exit;
 }
 
 
-
-if ($action === 'admin-delete-item') {
+else if ($action === 'admin-delete-item') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -320,7 +434,8 @@ if ($action === 'admin-delete-item') {
     echo json_encode(['success' => true, 'message' => 'Item deleted']);
     exit;
 }
-if ($action === 'admin-get-claims') {
+
+else if ($action === 'admin-get-claims') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -373,7 +488,7 @@ if ($action === 'admin-get-claims') {
     exit;
 }
 
-if ($action === 'admin-review-claim') {
+else if ($action === 'admin-review-claim') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -442,10 +557,6 @@ if ($action === 'admin-review-claim') {
                         VALUES ('{$claim['claimant_string_id']}', 'claim_$new_status', '$notif_title_escaped', 
                                 '$notif_message_escaped', $claim_id, '$admin_notes_escaped', NOW(), 0)";
         
-        if (!mysqli_query($conn, $insert_notif)) {
-            error_log("Failed to create notification: " . mysqli_error($conn));
-        }
-        
         if ($claim_action === 'approve' && !empty($claim['owner_id'])) {
             $owner_notif = "Your item '{$claim['title']}' has been claimed and approved.";
             $owner_notif_escaped = mysqli_real_escape_string($conn, $owner_notif);
@@ -476,7 +587,7 @@ if ($action === 'admin-review-claim') {
     exit;
 }
 
-if ($action === 'admin-get-matches') {
+else if ($action === 'admin-get-matches') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -527,7 +638,7 @@ if ($action === 'admin-get-matches') {
     exit;
 }
 
-if ($action === 'admin-update-match') {
+else if ($action === 'admin-update-match') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -535,14 +646,17 @@ if ($action === 'admin-update-match') {
     
     header('Content-Type: application/json; charset=utf-8');
     
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Enable error logging
+    error_log("=== ADMIN UPDATE MATCH STARTED ===");
     
-    $admin_identifier = $input['admin_id'] ?? $input['admin_email'] ?? $input['admin_string_id'] ?? '';
+    $input = json_decode(file_get_contents('php://input'), true);
+    error_log("Input: " . print_r($input, true));
+    
     $match_id = intval($input['match_id'] ?? 0);
     $status = $input['status'] ?? '';
     $admin_notes = mysqli_real_escape_string($conn, $input['admin_notes'] ?? '');
     
-
+    error_log("match_id: $match_id, status: $status");
     
     if (!$match_id || !in_array($status, ['confirmed', 'rejected'])) {
         echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
@@ -550,39 +664,124 @@ if ($action === 'admin-update-match') {
     }
     
     mysqli_begin_transaction($conn);
-    $get_match = mysqli_query($conn, "SELECT m.*, l.user_string_id as lost_owner, f.user_string_id as found_owner,
-                                     l.title as lost_title, f.title as found_title,
-                                     l.item_string_id as lost_string, f.item_string_id as found_string
-                                     FROM matches m
-                                     LEFT JOIN items l ON m.lost_item_id = l.item_string_id
-                                     LEFT JOIN items f ON m.found_item_id = f.item_string_id
-                                     WHERE m.id = $match_id");
-    $match = mysqli_fetch_assoc($get_match);
     
-    mysqli_query($conn, "UPDATE matches SET status = '$status', admin_notes = '$admin_notes' WHERE id = $match_id");
-    
-    if ($status === 'confirmed') {
-        mysqli_query($conn, "UPDATE items SET status = 'resolved' WHERE item_string_id = '{$match['lost_string']}'");
-        mysqli_query($conn, "UPDATE items SET status = 'resolved' WHERE item_string_id = '{$match['found_string']}'");
+    try {
+        // FIXED: Correct SQL query with proper joins using item_string_id
+        $get_match = mysqli_query($conn, "SELECT m.*, 
+                                         l.user_string_id as lost_owner, 
+                                         f.user_string_id as found_owner,
+                                         l.title as lost_title, 
+                                         f.title as found_title,
+                                         l.item_string_id as lost_string, 
+                                         f.item_string_id as found_string
+                                         FROM matches m
+                                         LEFT JOIN items l ON m.lost_item_id = l.id
+                                         LEFT JOIN items f ON m.found_item_id = f.id
+                                         WHERE m.id = $match_id");
         
-        $notif_message = "Your items '{$match['lost_title']}' and '{$match['found_title']}' have been matched!";
+        if (!$get_match) {
+            throw new Exception("Match query failed: " . mysqli_error($conn));
+        }
         
-        mysqli_query($conn, "INSERT INTO notifications (user_string_id, type, title, message, reference_id, created_at, is_read) 
-                           VALUES ('{$match['lost_owner']}', 'match_confirmed', 'Match Confirmed', '$notif_message', $match_id, NOW(), 0)");
+        $match = mysqli_fetch_assoc($get_match);
+        error_log("Match data: " . print_r($match, true));
         
-        mysqli_query($conn, "INSERT INTO notifications (user_string_id, type, title, message, reference_id, created_at, is_read) 
-                           VALUES ('{$match['found_owner']}', 'match_confirmed', 'Match Confirmed', '$notif_message', $match_id, NOW(), 0)");
+        if (!$match) {
+            throw new Exception("Match not found");
+        }
+        
+        // FIXED: Correct array access syntax - removed quotes around array key
+        $get_item = mysqli_query($conn, "SELECT * FROM items WHERE item_string_id = '" . mysqli_real_escape_string($conn, $match['lost_item_id']) . "'");
+        
+        if (!$get_item) {
+            throw new Exception("Item query failed: " . mysqli_error($conn));
+        }
+        
+        $item = mysqli_fetch_assoc($get_item);
+        
+        // Update match status
+        $update_match = "UPDATE matches SET status = '$status' WHERE id = $match_id";
+        if (!mysqli_query($conn, $update_match)) {
+            throw new Exception("Match update failed: " . mysqli_error($conn));
+        }
+        $escaped_lost_item_id = mysqli_real_escape_string($conn, $match['lost_item_id']);
+        $escaped_found_item_id = mysqli_real_escape_string($conn, $match['found_item_id']);
+        
+        if ($status === 'confirmed') {
+            // Update both items status
+            $update_lost = "UPDATE items SET status = 'matching' WHERE item_string_id = '$escaped_lost_item_id'";
+            $update_found = "UPDATE items SET status = 'matching' WHERE item_string_id = '$escaped_found_item_id'";
+            
+            if (!mysqli_query($conn, $update_lost) || !mysqli_query($conn, $update_found)) {
+                throw new Exception("Item update failed: " . mysqli_error($conn));
+            }
+
+            $notif_title = "Match Confirmed! ✅";
+            $notif_message = "Your item '{$item['title']}' has been matched with a " . 
+                            ($match['lost_owner'] == $item['user_string_id'] ? 'found' : 'lost') . 
+                            " item. Please check your matches.";
+            
+            // Notify lost item owner
+            if (!empty($match['owner_of_item'])) {
+                $notif_lost = "INSERT INTO notifications 
+                              (user_string_id, type, title, message, reference_id, created_at, is_read) 
+                              VALUES (
+                                  '" . mysqli_real_escape_string($conn, $match['lost_owner']) . "', 
+                                  'match_confirmed', 
+                                  '$notif_title', 
+                                  '" . mysqli_real_escape_string($conn, $notif_message) . "', 
+                                  '$match_id', 
+                                  NOW(), 
+                                  0
+                              )";
+                if (!mysqli_query($conn, $notif_lost)) {
+                    error_log("Lost owner notification failed: " . mysqli_error($conn));
+                }
+            }
+            
+            // Notify found item owner
+            if (!empty($match['owner_of_item'])) {
+                $notif_found = "INSERT INTO notifications 
+                               (user_string_id, type, title, message, reference_id, created_at, is_read) 
+                               VALUES (
+                                   '" . mysqli_real_escape_string($conn, $match['found_owner']) . "', 
+                                   'match_confirmed', 
+                                   '$notif_title', 
+                                   '" . mysqli_real_escape_string($conn, $notif_message) . "', 
+                                   '$match_id', 
+                                   NOW(), 
+                                   0
+                               )";
+                if (!mysqli_query($conn, $notif_found)) {
+                    error_log("Found owner notification failed: " . mysqli_error($conn));
+                }
+            }
+        }
+        if (function_exists('logAdminAction') && isset($input['admin_full_name'])) {
+            logAdminAction($conn, $input['admin_full_name'], "update_match", 
+                          "Match #$match_id $status", $admin_identifier);
+        }
+        
+        mysqli_commit($conn);
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Match ' . $status . ' successfully',
+            'match_id' => $match_id,
+            'new_status' => $status
+        ]);
+        
+    } catch (Exception $e) {
+        mysqli_rollback($conn);
+        error_log("Match update error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     
-    logAdminAction($conn, $verify['admin']['full_name'], "update_match", 
-                  "Match #$match_id $status");
-    
-    mysqli_commit($conn);
-    
-    echo json_encode(['success' => true, 'message' => 'Match updated']);
+    error_log("=== ADMIN UPDATE MATCH ENDED ===");
     exit;
 }
-if ($action === 'admin-get-users') {
+
+else if ($action === 'admin-get-users') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -629,7 +828,7 @@ if ($action === 'admin-get-users') {
     exit;
 }
 
-if ($action === 'admin-update-user') {
+else if ($action === 'admin-update-user') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -679,7 +878,7 @@ if ($action === 'admin-update-user') {
     exit;
 }
 
-if ($action === 'admin-delete-user') {
+else if ($action === 'admin-delete-user') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -720,7 +919,7 @@ if ($action === 'admin-delete-user') {
     echo json_encode(['success' => true, 'message' => 'User deleted']);
     exit;
 }
-if ($action === 'admin-send-message') {
+else if ($action === 'admin-send-message') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
@@ -756,7 +955,7 @@ if ($action === 'admin-send-message') {
     }
     exit;
 }
-if ($action === 'admin-get-logs') {
+else if ($action === 'admin-get-logs') {
     header('Content-Type: application/json; charset=utf-8');
     
     $admin_identifier = $_GET['admin_id'] ?? $_GET['admin_email'] ?? $_GET['admin_string_id'] ?? '';
@@ -772,7 +971,7 @@ if ($action === 'admin-get-logs') {
     echo json_encode(['success' => true, 'logs' => $logs]);
     exit;
 }
-if ($action === 'admin-login') {
+else if ($action === 'admin-login') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         exit;
